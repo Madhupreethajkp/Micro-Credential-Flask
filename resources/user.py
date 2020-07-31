@@ -1,22 +1,26 @@
+import random
 import sqlite3
 
 
 import data as data
+
 from flask_jwt import jwt_required
+from flask_mail import Message, Mail
 from flask_restful import Resource, reqparse
 
+#from app import app
 from models.user import UserModel
 
 from datetime import date
 from random import randint
 from urllib.parse import quote
 import webbrowser
-
+#mail = Mail(app)
 today = date.today()
 
 
 class UserRegister(Resource):
-    TABLE_NAME = 'user_details'
+    TABLE_NAME = 'user_new'
 
     parser = reqparse.RequestParser()
     parser.add_argument('first_name',
@@ -87,6 +91,27 @@ class UserRegister(Resource):
             return user.json()
         return {'message': 'user not found'}, 404
 
+    @jwt_required()
+    def get(self, user_id):
+        user = UserModel.find_by_user_id(user_id)
+        if user:
+            return user.json()
+        return {'message': 'user not found'}, 404
+
+    @jwt_required()
+    def get(self, user_id, password):
+        user = UserModel.find_by_login(user_id, password)
+        if user:
+            return user.json()
+        return {'message': 'user not found'}, 404
+
+    @jwt_required()
+    def get(self, password):
+        user = UserModel.find_by_password(password)
+        if user:
+            return user.json()
+        return {'message': 'user not found'}, 404
+
 
 
     def post(self):
@@ -96,62 +121,61 @@ class UserRegister(Resource):
             return {"message": "User with that email id already exists."}, 400
         connection = sqlite3.connect('data.db')
         cursor = connection.cursor()
-
-        query = "INSERT INTO {table} VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?,NULL,NULL)".format(
-            table=self.TABLE_NAME)
-        cursor.execute(query, (data['first_name'], data['last_name'], data['date_of_birth'], data['address'], data['contact_no'], data['email'], data['qualification'], data['gender'], data['salary'], data['pan_no'],
-                       data['type_of_employer']
-                       , data['name_of_employer']))
-
-        connection.close()
-        self.update(data['email'])
-        connection.commit()
-
-        return {"message": "User created successfully."}, 201
-
-    def update(self, email):
-
-        connection = sqlite3.connect('data.db')
-        cursor = connection.cursor()
-        salary = cursor.execute("SELECT salary from user_details where user_id='NULL'")
-        result = cursor.fetchone()
-        for x in result:
-            if email == email:
-                print(x)
-
-        salary = str(cursor.fetchone())
-
-        print(str(salary))
-        # s = str(salary)
-        income = (salary * 12)
-        salary_per_year = int(income)
-        if salary_per_year <= 500000:
+        income = int(data['salary'])
+        salary_per_year = income*12
+        print(salary_per_year)
+        print(type(salary_per_year))
+        if int(salary_per_year) <= 500000:
             user_type_id = 'A'
-        elif salary_per_year > 500000 & salary_per_year <= 1000000:
+        elif int(salary_per_year) > 500000 & int(salary_per_year) <= 1000000:
             user_type_id = 'B'
-        elif salary_per_year > 1000000 & salary_per_year <= 1500000:
+        elif int(salary_per_year) > 1000000 & int(salary_per_year) <= 1500000:
             user_type_id = 'C'
-        elif salary_per_year > 1500000 & salary_per_year <= 3000000:
+        elif int(salary_per_year) > 1500000 & int(salary_per_year) <= 3000000:
             user_type_id = 'D'
-        elif salary_per_year > 3000000:
+        elif int(salary_per_year) > 3000000:
             user_type_id = 'E'
-        i = 1
-        while i > 0:
-            num = 1200 + i
-        num = num + 1
+        print(user_type_id)
+
+       # n = str(cursor.execute("select last_insert_rowid() from auto"))
+        #print(type(n))
+        #print(n)
+       # num = 1200 + int(n)
+
+        #user_id = user_type_id + '-' + str(num)
+        num =1200
+        #num = 1200 + cursor.lastrowid
+        #print(type(cursor.lastrowid))
+        print(num)
         user_id = user_type_id + '-' + str(num)
         date = today.strftime("%d")
 
-        month = today.sfrtime("%B")
+        month = today.strftime("%B")
 
         random_number = randint(100, 999)
-        password = str(date) + str(month) + '-' + str(random_number)
-
-        update_query = "UPDATE user_details set user_id=user_id and password=password where user_id='NULL'"
-        cursor.execute(update_query)
+        character = random.choice('$_')
+        password = str(date) + str(month) + str(character) + str(random_number)
+        #msg = Message('Dear User,', sender='madhupreetha98@gmail.com', recipients=[data['email']])
+        #msg.body = "Your user id is " + data['user_id'] + " and your password is " + data['password']
+        query = "INSERT INTO {table} VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?,?,?)".format(
+            table=self.TABLE_NAME)
+        cursor.execute(query, (data['first_name'], data['last_name'], data['date_of_birth'], data['address'], data['contact_no'], data['email'], data['qualification'], data['gender'], data['salary'], data['pan_no'],
+                       data['type_of_employer']
+                       , data['name_of_employer'], user_id, password))
         connection.commit()
+              # self.update(data['email'])
+
+        query1 = "UPDATE user_tb set user_id=user_id and password = password"
+        cursor.execute(query1)
+
+        connection.commit()
+
         connection.close()
-        return {'update successfully'}
+
+       # mail.send(msg)
+
+        return {"message": "User created successfully."}, 201
+
 
 
 
