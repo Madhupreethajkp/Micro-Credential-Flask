@@ -1,9 +1,11 @@
 import sqlite3
+from datetime import date
 
 from flask_jwt import jwt_required
 from flask_restful import Resource, reqparse
 
 from models.policy import PolicyModel
+from resources.user import today
 
 
 class PolicyRegister(Resource):
@@ -85,6 +87,13 @@ class PolicyRegister(Resource):
         return {'message': 'policy not found'}, 404
 
     @jwt_required
+    def get_type(self, policy_id):
+        policy = PolicyModel.find_by_policy_id(policy_id)
+        if policy:
+            return policy.json()
+        return {'message': 'policy not found'}, 404
+
+    @jwt_required
     def get_years(self, duration_in_years):
         policy = PolicyModel.find_by_years(duration_in_years)
         if policy:
@@ -95,11 +104,32 @@ class PolicyRegister(Resource):
         data = PolicyRegister.parser.parse_args()
 
         connection = sqlite3.connect('data.db')
-       # connection2 = sqlite3.connect('data.db')
+        print(data['policy_type'])
         cursor = connection.cursor()
-        #cursor2 = connection2.cursor()
-        query = "INSERT INTO {table} VALUES (?,?, ?, ?, ?, ?, ?, ?, ?, ?,NULL,NULL)".format(table=self.TABLE_NAME)
-        cursor.execute(query, (data['policy_name'], data['start_date'], data['duration_in_years'], data['company_name'], data['initial_deposit'], data['policy_type'], data['user_type'], data['terms_per_year'], data['term_amount'], data['interest']))
+        if data['policy_type'] == 'Vehicle Insurance':
+            policy_type_id = 'VI'
+        elif data['policy_type'] == 'Travel Insurance':
+            policy_type_id = 'TI'
+        elif data['policy_type'] == 'Health Insurance':
+            policy_type_id = 'HI'
+        elif data['policy_type'] == 'Life Insurance':
+            policy_type_id = 'LI'
+        elif data['policy_type'] == 'Child Plans':
+            policy_type_id = 'CP'
+        elif data['policy_type'] == 'Retirement Plans':
+            policy_type_id = 'RT'
+        print(type(policy_type_id))
+        i = 1
+        num = 4+i
+        year_of_start_date = today.strftime("%Y")
+        print(type(year_of_start_date))
+        policy_id = policy_type_id + '-' + year_of_start_date + '-' + '00' + str(num)
+        x = int(data['duration_in_years'])*int(data['terms_per_year'])*int(data['term_amount'])
+        y = int(data['interest'])/100
+        maturity_amount = int(data['initial_deposit'])+x+(x*y)
+        print(maturity_amount)
+        query = "INSERT INTO {table} VALUES (?,?, ?, ?, ?, ?, ?, ?, ?, ?,?,?)".format(table=self.TABLE_NAME)
+        cursor.execute(query, (data['policy_name'], data['start_date'], data['duration_in_years'], data['company_name'], data['initial_deposit'], data['policy_type'], data['user_type'], data['terms_per_year'], data['term_amount'], data['interest'],maturity_amount, policy_id))
         connection.commit()
         connection.close()
 
@@ -111,3 +141,5 @@ class PolicyList(Resource):
         return {'policies': list(map(lambda x: x.json(), PolicyModel.query.all()))}
 
 
+
+    
